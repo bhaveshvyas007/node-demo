@@ -7,6 +7,8 @@ const jwt = require('jsonwebtoken');
 const secret = 'ILoveGunjan'; // Note : Change this when going live
 const bcrypt = require("bcrypt-nodejs");
 
+const Authentication = require('./middlewares/Authentication.js')
+
 /** bodyParser.urlencoded(options)
  * Parses the text as URL encoded data (which is how browsers tend to send form data from regular forms set to POST)
  * and exposes the resulting object (containing the keys and values) on req.body
@@ -15,46 +17,45 @@ app.use(bodyParser.urlencoded({
     extended: true
 }));
 
-app.post('register',function(req, res){
-
-});
 /**bodyParser.json(options)
  * Parses the text as JSON and exposes the resulting object on req.body.
  */
 app.use(bodyParser.json());
 // const router = app.Router();
 
-var myRouterfunction = function(req, res){
+app.post('/register',function(req, res){
+    if(req.body.name && req.body.password && req.body.surname) {
+    // if(req.body.name !=undefined && req.body.name != '' && req.body.password != '' && req.body.surname != '' ) {
+        users.push({
+            id : users.length + 1,
+            name : req.body.name,
+            password : req.body.password,
+            surname : req.body.surname
+        });
+        res.status(200).json({message: "User Registered sussefully"});
+    }
+    else {
+        res.status(422).json({message: "Name, Password and Surname are required"});
+    }
+});
+
+app.use(Authentication);
+
+app.get('/',function(req, res){
     // res.sendFile(__dirname + '/abc.html');
     // res.send({message : "welcome"});
     if(req.query.name === 'Bhavesh')
         res.json({message : "Hello Bhavesh! " + req.query.surname});
     else
         res.status(400).json({message : "Error Occured!"});
-};
-
-app.get('/',myRouterfunction);
+});
 
 app.get('/users', function(req,res){
-    if(req.headers.authorization)
-        res.json(users);
-    else {
-        res.status(401).json({message: "Token Missing!, Please login"})
-    }
+    res.json(users);
 })
 
 app.get('/my-profile', function(req,res){
-    if(req.headers.authorization){
-        jwt.verify(req.headers.authorization, secret, function(err, decoded) {
-            if(err) {
-                res.staus(401).json({message:"Token invalid"})
-            } else {
-                res.json(decoded.data);
-            }
-        })
-    } else {
-        res.status(401).json({message: "Token Missing!, Please login"})
-    }
+    res.json(req.decoded.data);
 })
 
 app.get('/users/:id', function(req,res){
