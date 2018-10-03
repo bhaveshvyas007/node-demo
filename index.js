@@ -8,6 +8,7 @@ const secret = 'ILoveGunjan'; // Note : Change this when going live
 const bcrypt = require("bcrypt-nodejs");
 
 const Authentication = require('./middlewares/Authentication.js')
+const Validations = require('./middlewares/Validations.js')
 
 /** bodyParser.urlencoded(options)
  * Parses the text as URL encoded data (which is how browsers tend to send form data from regular forms set to POST)
@@ -23,20 +24,20 @@ app.use(bodyParser.urlencoded({
 app.use(bodyParser.json());
 // const router = app.Router();
 
-app.post('/register',function(req, res){
-    if(req.body.name && req.body.password && req.body.surname) {
-    // if(req.body.name !=undefined && req.body.name != '' && req.body.password != '' && req.body.surname != '' ) {
-        users.push({
-            id : users.length + 1,
-            name : req.body.name,
-            password : req.body.password,
-            surname : req.body.surname
-        });
-        res.status(200).json({message: "User Registered sussefully"});
+app.post('/register', Validations, function(req, res){
+
+    var userDetail = {
+        id : users.length + 1,
+        name : req.body.name,
+        password : req.body.password,
+        surname : req.body.surname
     }
-    else {
-        res.status(422).json({message: "Name, Password and Surname are required"});
-    }
+
+    users.push({ userDetail });
+    delete userDetail.password;
+
+    var token = jwt.sign({data: userDetail}, secret, { expiresIn: '24h' });
+    res.status(200).json({message: "User Registered & logged In successfully", token : token, profile : userDetail});
 });
 
 app.use(Authentication);
@@ -97,3 +98,4 @@ app.listen(3000, function() {
 
 
 // Commiting for new development branch.
+
