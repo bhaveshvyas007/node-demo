@@ -1,11 +1,36 @@
 const express = require('express');
 const app = express();
-const users = require('./sample/usersData');
 const bodyParser = require("body-parser");
 
+// ===================================================
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 const jwt = require('jsonwebtoken');
 const secret = 'ILoveGunjan'; // Note : Change this when going live
 const bcrypt = require("bcrypt-nodejs");
+mongoose.connect('mongodb://localhost/node-demo');
+
+const userSchema = new Schema({
+    email : {type: String, required: [true,"email is required"], unique:true},
+    name : String,
+    password : String,
+    surname : String
+}, {
+    collection: 'Users',
+    timestamps: true
+});
+
+userSchema.pre("save", function(next){
+    let user = this;
+    if (!user.isModified('password')) return next();
+    bcrypt.hash(user.password,null,null,function(err,hash){
+        if(err) return next(err);
+        user.password = hash;
+        next();
+    });
+});
+const Users = mongoose.model('Users', userSchema);
+//======================================
 
 const Authentication = require('./middlewares/Authentication.js')
 const Validations = require('./middlewares/Validations.js')
@@ -25,38 +50,100 @@ app.use(bodyParser.json());
 // const router = app.Router();
 
 app.post('/register', Validations, function(req, res){
-
-    var userDetail = {
-        id : users.length + 1,
+    const user = new Users({
+        email: req.body.email,
         name : req.body.name,
         password : req.body.password,
         surname : req.body.surname
+    });
+    const validationError = user.validateSync();
+    if(validationError){
+        //Note Check individual validation and respond with proper message
+        if(validationError.email){
+            return res.status(422).json({message: validationError.email.message});
+        }
+        else
+            return res.status(422).json({message: "Validation Error"});
     }
+    user.save((err, data) => {
+        if(err){
+            if(err.code===11000){
 
-    users.push({ userDetail });
-    delete userDetail.password;
+                if(err.errmsg.match(/email/gi)){
+                    return res.status(422).json({message: "User Already exists by that email"});
+                }
+                if(err.errmsg.match(/phone/gi)){
+                    return res.status(422).json({message: "User Already exists by that phone"});
+                }
+                return res.status(422).json({message: "User Already exists."});
+            }
+            else
+                return res.status(400).json({message: "Some Error Occured"});
+        }
+        delete user.password;
 
-    var token = jwt.sign({data: userDetail}, secret, { expiresIn: '24h' });
-    res.status(200).json({message: "User Registered & logged In successfully", token : token, profile : userDetail});
+        var token = jwt.sign({data: user}, secret, { expiresIn: '24h' });
+        return res.status(200).json({message: "User Registered & logged In successfully", token : token, profile : user});
+    })
+
+
 });
+
+app.post('/login', function(req, res){
+    const email = req.body.email;
+    const password = req.body.password;
+    
+    Users.findOne({email}).exec((err, user)=>{
+        if(err){
+            return res.status(400).json({message : "Error Occured!", mongoMessage: err})
+        } else if(user) {
+            bcrypt.compare(password, user.password, (err, result) => {
+                if(err){
+                    return res.status('500').json({message: "Some Error Occured!"});
+                }
+                if(result) {
+                    delete user.password;
+                    var token = jwt.sign({data: user}, secret, { expiresIn: '24h' });
+                    return res.json({message: "You are now logged In!!", token : token, profile : user});
+                } else {
+                    return res.status('401').json({message: "Password incorrect!"});
+                }
+            });
+            
+        } else {
+            return res.status('404').json({message: "User not found!"});
+        }
+
+    })
+})
 
 app.use(Authentication);
 
 app.get('/',function(req, res){
-    // res.sendFile(__dirname + '/abc.html');
-    // res.send({message : "welcome"});
+    // return res.sendFile(__dirname + '/abc.html');
+    // return res.send({message : "welcome"});
     if(req.query.name === 'Bhavesh')
-        res.json({message : "Hello Bhavesh! " + req.query.surname});
+        return res.json({message : "Hello Bhavesh! " + req.query.surname});
     else
-        res.status(400).json({message : "Error Occured!"});
+        return res.status(400).json({message : "Error Occured!"});
 });
 
 app.get('/users', function(req,res){
-    res.json(users);
+    Users.find().exec((err, users)=>{
+        if(err){
+            return res.status(400).json({message: "Error occured"});  
+        }
+        else if(users){
+            return res.json(users);
+        }
+        else {
+            return res.status(404).json({message: "No users"});
+        }
+    })
 })
 
 app.get('/my-profile', function(req,res){
-    res.json(req.decoded.data);
+    return res.json(req.decoded.data);
 })
 
 app.get('/users/:id', function(req,res){
@@ -68,27 +155,9 @@ app.get('/users/:id', function(req,res){
         }
     })
     if(result) {
-        res.json({message: "User Found", data : result});
+        return res.json({message: "User Found", data : result});
     } else {
-        res.status('404').json({message: "User Not found!"});
-    }
-})
-
-app.post('/login', function(req, res){
-    const name = req.body.name;
-    const password = req.body.password;
-    let result = null;
-    users.forEach(function(val, key){
-        if(val.name == name && val.password == password){
-            result = Object.assign({},val);
-            delete result.password;
-        }
-    })
-    if(result) {
-        var token = jwt.sign({data: result}, secret, { expiresIn: '24h' });
-        res.json({message: "You are now logged In!!", token : token, profile : result});
-    } else {
-        res.status('401').json({message: "Username or password incorrect!"});
+        return res.status('404').json({message: "User Not found!"});
     }
 })
 

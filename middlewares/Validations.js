@@ -1,5 +1,3 @@
-const users = require('../sample/usersData');
-
 module.exports = function( req, res, next ) {
 
     let name            = req.body.name;
@@ -12,9 +10,9 @@ module.exports = function( req, res, next ) {
     if( !name ) {
         boolIsValid = false
         strMessage += "Name is required. ";
-    } else if ( users.some( item => item.name == req.body.name ) ) {
-        boolIsValid = false
-        strMessage += "Name already exists. ";
+    // } else if ( users.some( item => item.name == req.body.name ) ) {
+    //     boolIsValid = false
+    //     strMessage += "Name already exists. ";
     }
 
     if( !surname ) {
@@ -36,6 +34,6 @@ module.exports = function( req, res, next ) {
     if( !boolIsValid ) {
         res.status(422).json({ message: strMessage });
     }
-    
-    next();
+    else
+        next();
 }
