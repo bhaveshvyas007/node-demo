@@ -11,10 +11,10 @@ const bcrypt = require("bcrypt-nodejs");
 mongoose.connect('mongodb://localhost/node-demo');
 
 const userSchema = new Schema({
-    email : {type: String, required: [true,"email is required"], unique:true},
-    name : String,
-    password : String,
-    surname : String
+    email : {type: String, required: [true,"Email is required"], unique:true},
+    name : {type: String, required: [true,"Name is required"], unique:true},
+    password : {type: String, required: [true,"Password is required"], unique:true},
+    surname : {type: String},
 }, {
     collection: 'Users',
     timestamps: true
@@ -85,8 +85,6 @@ app.post('/register', Validations, function(req, res){
         var token = jwt.sign({data: user}, secret, { expiresIn: '24h' });
         return res.status(200).json({message: "User Registered & logged In successfully", token : token, profile : user});
     })
-
-
 });
 
 app.post('/login', function(req, res){
@@ -113,7 +111,6 @@ app.post('/login', function(req, res){
         } else {
             return res.status('404').json({message: "User not found!"});
         }
-
     })
 })
 
@@ -140,31 +137,27 @@ app.get('/users', function(req,res){
             return res.status(404).json({message: "No users"});
         }
     })
-})
+});
 
 app.get('/my-profile', function(req,res){
     return res.json(req.decoded.data);
-})
+});
 
-app.get('/users/:id', function(req,res){
-    const id = req.params.id;
-    let result = null;
-    users.forEach(function(val, key){
-        if(val.id == id){
-            result = val;
+app.get('/users/:id', function(req,res){ 
+    Users.findOne({_id: req.params.id},function(err, user) { 
+        if(err) {
+            return res.status(400).json({message: err.message});
+        } else if(user) {
+            return res.json({message: "User Found", data : user});
+        } else {
+            return res.status('404').json({message: "User Not found!"});
         }
-    })
-    if(result) {
-        return res.json({message: "User Found", data : result});
-    } else {
-        return res.status('404').json({message: "User Not found!"});
-    }
-})
+    });
+});
 
 app.listen(3000, function() {
 	console.log("Server running on localhost:3000");
 })
-
 
 // Commiting for new development branch.
 
